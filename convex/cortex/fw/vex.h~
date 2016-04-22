@@ -76,7 +76,7 @@
 /**
  * @brief   ConVEX version string.
  */
-#define CONVEX_VERSION       "1.0.4-added"
+#define CONVEX_VERSION       "1.0.4"
 
 /**
  * @name    ConVEX version
