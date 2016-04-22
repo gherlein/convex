@@ -112,7 +112,7 @@ extern EventSource shell_terminated;
 extern "C" {
 #endif
 
-void        sserialInit(void);
+void        serialInit(void);
 Thread     *serialCreate(const SerProtoConfig *scp, size_t size, tprio_t prio);
 Thread     *serialCreateStatic(const SerProtoConfig *scp, void *wsp, size_t size, tprio_t prio);
 bool_t      shellGetLine(vexStream *chp, char *line, unsigned size);
