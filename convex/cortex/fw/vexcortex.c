@@ -339,106 +339,106 @@ static WORKING_AREA(waVexCortexMonitorTask, MONITOR_TASK_STACK_SIZE);
 static msg_t
 vexCortexMonitorTask(void *arg)
 {
-    uint16_t    i;
-    Thread  *tp = NULL;
-    uint16_t    state;
+  uint16_t    i;
+  Thread  *tp = NULL;
+  uint16_t    state;
 
-    (void)arg;
+  (void)arg;
 
-    chRegSetThreadName("monitor");
-    chEvtInit(&task_terminate);
+  chRegSetThreadName("monitor");
+  chEvtInit(&task_terminate);
 
-    // clear event listeners
-    for(i=0;i<MAX_THREAD;i++)
-        {
-        myThreads[ i ].tp = (Thread *)0;
-        myThreads[ i ].persistent = FALSE;
-        }
+  // clear event listeners
+  for(i=0;i<MAX_THREAD;i++)
+  {
+    myThreads[ i ].tp = (Thread *)0;
+    myThreads[ i ].persistent = FALSE;
+  }
 
-    // wait until all the master cpu resets are done
-    // it issues two additional resets after power on
-    // at 100mS intervals
-    chThdSleepMilliseconds(120);
+  // wait until all the master cpu resets are done
+  // it issues two additional resets after power on
+  // at 100mS intervals
+  chThdSleepMilliseconds(120);
 
 #ifndef  BOARD_OLIMEX_STM32_P103
-    // wait for good spi comms
-    while( vexSpiGetOnlineStatus() == 0 )
-        {
-        // wait for a while
-        chThdSleepMilliseconds(100);
-        }
+  // wait for good spi comms
+  while( vexSpiGetOnlineStatus() == 0 )
+  {
+    // wait for a while
+    chThdSleepMilliseconds(100);
+  }
 #endif
 
-    // another delay
-    chThdSleepMilliseconds(2000);
+  // another delay
+  chThdSleepMilliseconds(2000);
 
-    // pre auton function - may not exist
-    if( vexUserInit )
-        vexUserInit();
+  // pre auton function - may not exist
+  if( vexUserInit )
+    vexUserInit();
 
-    while (TRUE)
-        {
+  while (TRUE)
+  {
+    chThdSleepMilliseconds(16);
+
+    // If enabled
+    if( (vexControllerCompetitonState() & kFlagDisabled ) != kFlagDisabled )
+    {
+      if( (vexControllerCompetitonState() & kFlagAutonomousMode ) != kFlagAutonomousMode )
+      {
+        // Operator control
+        // Start the operator thread at higher than normal priority
+        tp = chThdCreateStatic(waVexUserTask, sizeof(waVexUserTask), USER_THREAD_PRIORITY, vexOperator, NULL);
+        state = 0;
+      }
+      else
+      {
+        // Autonomous
+        // Start the operator thread at higher than normal priority
+        tp = chThdCreateStatic(waVexUserTask, sizeof(waVexUserTask), USER_THREAD_PRIORITY, vexAutonomous, NULL);
+        state = kFlagAutonomousMode;
+      }
+
+      // While we are enabled, either auton or operator, wait here unless kill all flag is set
+      while( (vexControllerCompetitonState() & (kFlagDisabled | kFlagAutonomousMode)) == state )
+      {
         chThdSleepMilliseconds(16);
 
-        // If enabled
-        if( (vexControllerCompetitonState() & kFlagDisabled ) != kFlagDisabled )
-            {
-            if( (vexControllerCompetitonState() & kFlagAutonomousMode ) != kFlagAutonomousMode )
-                {
-                // Operator control
-                // Start the operator thread at higher than normal priority
-                tp = chThdCreateStatic(waVexUserTask, sizeof(waVexUserTask), USER_THREAD_PRIORITY, vexOperator, NULL);
-                state = 0;
-                }
-            else
-                {
-                // Autonomous
-                // Start the operator thread at higher than normal priority
-                tp = chThdCreateStatic(waVexUserTask, sizeof(waVexUserTask), USER_THREAD_PRIORITY, vexAutonomous, NULL);
-                state = kFlagAutonomousMode;
-                }
+        // Emergency stop
+        if( vexKillAll )
+          break;
+      }
 
-            // While we are enabled, either auton or operator, wait here unless kill all flag is set
-            while( (vexControllerCompetitonState() & (kFlagDisabled | kFlagAutonomousMode)) == state )
-               {
-               chThdSleepMilliseconds(16);
+      // Broadcast termination event
+      chThdSleepMilliseconds(50);
+      chSysLock();
+      if( chEvtIsListeningI(&task_terminate) )
+        chEvtBroadcastI(&task_terminate);
+      chSysUnlock();
+      chThdSleepMilliseconds(50);
 
-               // Emergency stop
-               if( vexKillAll )
-                   break;
-               }
+      // wait for termination
+      chThdWait( tp );
 
-            // Broadcast termination event
-            chThdSleepMilliseconds(50);
-            chSysLock();
-            if( chEvtIsListeningI(&task_terminate) )
-                chEvtBroadcastI(&task_terminate);
-            chSysUnlock();
-            chThdSleepMilliseconds(50);
+      // stop all motors
+      vexMotorStopAll();
 
-            // wait for termination
-            chThdWait( tp );
-
-            // stop all motors
-            vexMotorStopAll();
-
-            // wait for all threads to stop
-            for(i=0;i<MAX_THREAD;i++)
-                {
-                if( ( myThreads[ i ].tp != 0 ) && (myThreads[ i ].persistent == FALSE) )
-                    {
-                    chThdWait( myThreads[ i ].tp );
-                    myThreads[ i ].tp = (Thread *)0;
-                    }
-                }
-
-            // We are done
-            while( vexKillAll )
-                chThdSleepMilliseconds(50);
-            }
+      // wait for all threads to stop
+      for(i=0;i<MAX_THREAD;i++)
+      {
+        if( ( myThreads[ i ].tp != 0 ) && (myThreads[ i ].persistent == FALSE) )
+        {
+          chThdWait( myThreads[ i ].tp );
+          myThreads[ i ].tp = (Thread *)0;
         }
+      }
 
-    return (msg_t)0;
+      // We are done
+      while( vexKillAll )
+        chThdSleepMilliseconds(50);
+    }
+  }
+
+  return (msg_t)0;
 }
 
 

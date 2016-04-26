@@ -77,22 +77,22 @@ static  int16_t   m9_new_value = 0;
 void
 vexMotorInit()
 {
-    int16_t     i;
+  int16_t     i;
 
-    for(i=kVexMotor_1;i<kVexMotorNum;i++)
-        {
-        vexMotors[i].value = 0;
-        vexMotors[i].type  = kVexMotorUndefined;
-        vexMotors[i].reversed = FALSE;
-        vexMotors[i].motorPositionGet = NULL;
-        vexMotors[i].motorPositionSet = NULL;
-        }
+  for(i=kVexMotor_1;i<kVexMotorNum;i++)
+  {
+    vexMotors[i].value = 0;
+    vexMotors[i].type  = kVexMotorUndefined;
+    vexMotors[i].reversed = FALSE;
+    vexMotors[i].motorPositionGet = NULL;
+    vexMotors[i].motorPositionSet = NULL;
+  }
 
-    // Initialize the two H-Bridge motor controllers
+  // Initialize the two H-Bridge motor controllers
 #ifdef  BOARD_OLIMEX_STM32_P103
-    _vexMotorPwmInit( TIM3 );
+  _vexMotorPwmInit( TIM3 );
 #else
-    _vexMotorPwmInit( TIM4 );
+  _vexMotorPwmInit( TIM4 );
 #endif
 
 }

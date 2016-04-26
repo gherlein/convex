@@ -68,15 +68,15 @@
 /** @brief   Shell maximum input line length.                                  */
 /*-----------------------------------------------------------------------------*/
 
-#if !defined(SHELL_MAX_LINE_LENGTH) || defined(__DOXYGEN__)
-#define SHELL_MAX_LINE_LENGTH       64
+#if !defined(SERIAL_MAX_LINE_LENGTH) || defined(__DOXYGEN__)
+#define SERIAL_MAX_LINE_LENGTH       128
 #endif
 
 /*-----------------------------------------------------------------------------*/
 /** @brief   Shell maximum arguments per command.                              */
 /*-----------------------------------------------------------------------------*/
-#if !defined(SHELL_MAX_ARGUMENTS) || defined(__DOXYGEN__)
-#define SHELL_MAX_ARGUMENTS         4
+#if !defined(SERIAL_MAX_ARGUMENTS) || defined(__DOXYGEN__)
+#define SERIAL_MAX_ARGUMENTS         64
 #endif
 
 /*-----------------------------------------------------------------------------*/
@@ -95,12 +95,14 @@ typedef struct {
 /*-----------------------------------------------------------------------------*/
 /** @brief   SerialProto descriptor type.                                            */
 /*-----------------------------------------------------------------------------*/
+typedef int (*lineHandler_cb)(vexStream *scp, char* line);
+
 typedef struct {
-  vexStream             *sc_channel;        /**< @brief I/O channel associated
-                                                 to the shell.              */
-  const SerialCommand   *sc_commands;       /**< @brief Shell extra commands
-                                                 table.                     */
-  const char            *delim;             /**< @brief  serial field delim */
+  vexStream             *sc_channel;        
+  lineHandler_cb         cb;
+  char*                  lineStart;
+  char*                  logoutString;
+  int                    max_len;
 } SerProtoConfig;
 
 

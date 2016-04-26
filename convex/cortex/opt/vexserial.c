@@ -82,97 +82,40 @@ static  bool_t  shell_bufr = true;
 #define HISTORY_CHAR          '!'
 #define ESC                   0x1B
 
-//#define xstr(a) str(a)
-//#define str(a) #a
 
-// String to token
-static char *_strtok(char *str, const char *delim, char **saveptr)
-{
-    char *token;
-    if (str)
-        *saveptr = str;
-    token = *saveptr;
-
-    if (!token)
-        return NULL;
-
-    token += strspn(token, delim);
-    *saveptr = strpbrk(token, delim);
-    if (*saveptr)
-        *(*saveptr)++ = '\0';
-
-    return( *token ? token : NULL );
-}
-
-
-/*-----------------------------------------------------------------------------*/
-/*  Execute command                                                            */
-/*-----------------------------------------------------------------------------*/
-
-static bool_t
-cmdexec(const SerialCommand *scp, vexStream *chp, char *name, int argc, char *argv[])
-{
-    while (scp->sc_name != NULL) {
-        if (strcasecmp(scp->sc_name, name) == 0) {
-            scp->sc_function(chp, argc, argv);
-            return FALSE;
-        }
-        scp++;
-    }
-  return TRUE;
-}
+bool_t serialGetLine( vexStream *chp, char *line, unsigned size );
 
 /*-----------------------------------------------------------------------------*/
 
 static msg_t
-shell_thread(void *p)
+serial_thread(void *p)
 {
-  int n;
   msg_t msg = RDY_OK;
   vexStream *chp = ((ShellConfig *)p)->sc_channel;
-  const SerialCommand *scp = (SerialCommand *)((SerProtoConfig *)p)->sc_commands;
-  const char *delim =((SerProtoConfig *)p)->delim;
-  char *lp, *cmd, *tokp, line[SHELL_MAX_LINE_LENGTH];
-  char *args[SHELL_MAX_ARGUMENTS + 1];
+  char* logoutString =((SerProtoConfig *)p)->logoutString;
+  char line[((SerProtoConfig *)p)->max_len];
+  lineHandler_cb cb=((SerProtoConfig *)p)->cb;
 
   chRegSetThreadName("vexserial");
 
   while (TRUE)
   {
-    vex_chprintf(chp, "> ");
-    if (shellGetLine(chp, line, sizeof(line)))
+//    vex_chprintf(chp, lineStart);
+    if (serialGetLine(chp, line, sizeof(line)))
     {
-      vex_chprintf(chp, "\r\nlogout");
+      vex_chprintf(chp, logoutString);
       break;
     }
 
-    lp = _strtok(line,delim, &tokp);
-    cmd = lp;
-    n = 0;
-
-    // Break line up into arguments
-    while ((lp = _strtok(NULL,delim, &tokp)) != NULL)
-    {
-      if (n >= SHELL_MAX_ARGUMENTS)
-      {
-        vex_chprintf(chp, "too many arguments\r\n");
-        cmd = NULL;
-        break;
-      }
-      args[n++] = lp;
-    }
-    args[n] = NULL;
-
-    if (cmd != NULL)
-    {
-      cmdexec(scp, chp, cmd, n, args);                                                       }
+//    vex_chprintf(chp, "[%s]\r\n",line);
+    if(cb) cb(chp,line);
   }
+
 // Atomically broadcasting the event source and terminating the thread,
 // there is not a chSysUnlock() because the thread terminates upon return.
   chSysLock();
   chEvtBroadcastI(&shell_terminated);
   chThdExitS(msg);
-
   return 0; // Never executed.
 }
 
@@ -198,7 +141,7 @@ void serialInit(void)
 #if (CH_USE_HEAP && CH_USE_DYNAMIC) || defined(__DOXYGEN__)
 Thread *serialCreate(const SerProtoConfig *scp, size_t size, tprio_t prio)
 {
-    return chThdCreateFromHeap(NULL, size, prio, shell_thread, (void *)scp);
+    return chThdCreateFromHeap(NULL, size, prio, serial_thread, (void *)scp);
 }
 #endif
 
@@ -214,7 +157,7 @@ Thread *serialCreate(const SerProtoConfig *scp, size_t size, tprio_t prio)
 
 Thread *serialCreateStatic(const SerProtoConfig *scp, void *wsp, size_t size, tprio_t prio)
 {
-    return chThdCreateStatic(wsp, size, prio, shell_thread, (void *)scp);
+    return chThdCreateStatic(wsp, size, prio, serial_thread, (void *)scp);
 }
 
 /*-----------------------------------------------------------------------------*/
