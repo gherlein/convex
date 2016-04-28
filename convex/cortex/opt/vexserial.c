@@ -92,9 +92,9 @@ serial_thread(void *p)
 {
   msg_t msg = RDY_OK;
   vexStream *chp = ((ShellConfig *)p)->sc_channel;
-  char* logoutString =((SerProtoConfig *)p)->logoutString;
+  char* logoutString = ((SerProtoConfig *)p)->logoutString;
   char line[((SerProtoConfig *)p)->max_len];
-  lineHandler_cb cb=((SerProtoConfig *)p)->cb;
+  lineHandler_cb cb = ((SerProtoConfig *)p)->cb;
 
   chRegSetThreadName("vexserial");
 
@@ -108,7 +108,7 @@ serial_thread(void *p)
     }
 
 //    vex_chprintf(chp, "[%s]\r\n",line);
-    if(cb) cb(chp,line);
+    if (cb) cb(chp, line);
   }
 
 // Atomically broadcasting the event source and terminating the thread,
@@ -125,7 +125,7 @@ serial_thread(void *p)
 
 void serialInit(void)
 {
-    chEvtInit(&shell_terminated);
+  chEvtInit(&shell_terminated);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -141,7 +141,7 @@ void serialInit(void)
 #if (CH_USE_HEAP && CH_USE_DYNAMIC) || defined(__DOXYGEN__)
 Thread *serialCreate(const SerProtoConfig *scp, size_t size, tprio_t prio)
 {
-    return chThdCreateFromHeap(NULL, size, prio, serial_thread, (void *)scp);
+  return chThdCreateFromHeap(NULL, size, prio, serial_thread, (void *)scp);
 }
 #endif
 
@@ -157,12 +157,12 @@ Thread *serialCreate(const SerProtoConfig *scp, size_t size, tprio_t prio)
 
 Thread *serialCreateStatic(const SerProtoConfig *scp, void *wsp, size_t size, tprio_t prio)
 {
-    return chThdCreateStatic(wsp, size, prio, serial_thread, (void *)scp);
+  return chThdCreateStatic(wsp, size, prio, serial_thread, (void *)scp);
 }
 
 /*-----------------------------------------------------------------------------*/
 /** @private                                                                   */
-/** @brief Gets a single line of input for the shell                           */
+/** @brief Gets a single line of input                                         */
 /** @param[in]  chp     A pointer to a vexStream object                        */
 /** @param[in]  line    A pointer the inpout buffer                            */
 /** @param[in]  size    size of the inpout buffer                              */
@@ -179,9 +179,7 @@ bool_t serialGetLine( vexStream *chp, char *line, unsigned size )
   char *r = line;
   systime_t   lasttime = chTimeNow();
 
-  // keep this for now even though the idea is that the custom serial protocol
-  // is not intended for interactive use
-  
+
   // not in escape sequence
   escSeq = 0;
 
@@ -193,14 +191,14 @@ bool_t serialGetLine( vexStream *chp, char *line, unsigned size )
       return TRUE;
 #else
     short c;
-    if( (c = (short)chIOGet(chp)) < 0 )
+    if ( (c = (short)chIOGet(chp)) < 0 )
       return TRUE;
 #endif
 
     // In escape sequence part 1 ?
-    if( escSeq == 1 )
+    if ( escSeq == 1 )
     {
-      if( c == '[' )
+      if ( c == '[' )
       {
         escSeq = 2;
         continue;
@@ -210,113 +208,115 @@ bool_t serialGetLine( vexStream *chp, char *line, unsigned size )
     }
 
     // In escape sequence part 2 ?
-    if( escSeq == 2 )
+    if ( escSeq == 2 )
     {
-      switch(c)
+      switch (c)
       {
-        case 'A':   // Cursor Up
-          if( shell_echo )
-            vex_chprintf(chp, "%s", history);
+      case 'A':   // Cursor Up
+        if ( shell_echo )
+          vex_chprintf(chp, "%s", history);
 
-          // copy history buffer to line
-          q = history;
-          while((p < line + size - 1) && (*q != 0))
-            *p++ = *q++;
-          // assume no buffering for history
-          r = p;
-          break;
+        // copy history buffer to line
+        q = history;
+        while ((p < line + size - 1) && (*q != 0))
+          *p++ = *q++;
+        // assume no buffering for history
+        r = p;
+        break;
 
-        default:
-          break;
+      default:
+        break;
       }
       escSeq = 0;
       continue;
     }
 
 
-    switch(c)
+    switch (c)
     {
-      // CTRL D quits shell
-      case    CTRL_D:
-        vex_chprintf(chp, "^D");
-        return TRUE;
-        break;
+    // CTRL D quits shell
+    case    CTRL_D:
+      vex_chprintf(chp, "^D");
+      return TRUE;
+      break;
 
-        // Backspace
-      case    BKSPACE_CHAR:
-      case    0x7F:       // for some reason OSX screen outputs 7F
-        if (p != line)
-        {
-          if( shell_echo ) {
-            // print any buffered characters
-            while( r != p )
-              vex_chprintf(chp, "%c", (uint8_t)*r++);
-            // print backspace and wipe the previous character
-            vex_chprintf(chp, "%c %c", (uint8_t)BKSPACE_CHAR, (uint8_t)BKSPACE_CHAR );
-          }
-
-          // one less character
-          p--;
-          // no more buffering
-          r = p;
-        }
-        break;
-
-      case    CR:
-        *p = 0;
-
-        if(shell_echo) {
-          // print any remaining chars that came in quickly
-          if( r != p )
-            vex_chprintf(chp, "%s", r);
-
-          // copy to history buffer
-          for( q=history, p=line;*p!=0;q++,p++)
-            *q = *p;
-          *q = 0;
+    // Backspace
+    case    BKSPACE_CHAR:
+    case    0x7F:       // for some reason OSX screen outputs 7F
+      if (p != line)
+      {
+        if ( shell_echo ) {
+          // print any buffered characters
+          while ( r != p )
+            vex_chprintf(chp, "%c", (uint8_t)*r++);
+          // print backspace and wipe the previous character
+          vex_chprintf(chp, "%c %c", (uint8_t)BKSPACE_CHAR, (uint8_t)BKSPACE_CHAR );
         }
 
-        // send cr/lf
-        vex_chprintf(chp, "\r\n");
-        return FALSE;
-        break;
+        // one less character
+        p--;
+        // no more buffering
+        r = p;
+      }
+      break;
 
-      case    ESC:
-        // escape sequence ?
-        escSeq = 1;
-        break;
+    case    CR:
+      *p = 0;
 
-      case    0xC9:
-        // start of VEX escape sequence
-        // sleep - do not echo
-        chThdSleepMilliseconds(500);
-        break;
+      if (shell_echo) {
+        // print any remaining chars that came in quickly
+        if ( r != p )
+          vex_chprintf(chp, "%s", r);
 
-      case    0x21:
-        // ROBOTC uses 0x21 command to start user code
-        // and does this before downloading its firmware
-        // sleep - do not echo
-        chThdSleepMilliseconds(100);
-        break;
+        // copy to history buffer
+        for ( q = history, p = line; *p != 0; q++, p++)
+          *q = *p;
+        *q = 0;
+      }
 
-      default:
-        if (c >= 0x20) {
-          if (p < line + size - 1) {
-            *p++ = (char)c;
+      // send cr/lf
+      vex_chprintf(chp, "\r\n");
+      return FALSE;
+      break;
 
-            if( shell_echo ) {
-              if( !shell_bufr || (chTimeNow() - lasttime) > 50 ) {
-                while( r != p )
-                  vex_chprintf(chp, "%c", (uint8_t)*r++);
-              }
+    case    ESC:
+      // escape sequence ?
+      escSeq = 1;
+      break;
 
-              lasttime = chTimeNow();
+    case    0xC9:
+      // start of VEX escape sequence
+      // sleep - do not echo
+      chThdSleepMilliseconds(500);
+      break;
+
+    case    0x21:
+      // ROBOTC uses 0x21 command to start user code
+      // and does this before downloading its firmware
+      // sleep - do not echo
+      chThdSleepMilliseconds(100);
+      break;
+
+    default:
+      if (c >= 0x20) {
+        if (p < line + size - 1) {
+          *p++ = (char)c;
+
+          if ( shell_echo ) {
+            if ( !shell_bufr || (chTimeNow() - lasttime) > 50 ) {
+              while ( r != p )
+                vex_chprintf(chp, "%c", (uint8_t)*r++);
             }
+
+            lasttime = chTimeNow();
           }
         }
-        break;
+      }
+      break;
     }
   }
 }
+
+
 
 
